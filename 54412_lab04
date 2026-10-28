@@ -1,0 +1,235 @@
+## Dane studenta
+- Imię i nazwisko: Jakub Płatek
+- Numer albumu: 54412
+- Grupa: 3
+- Data: 28.10.2026
+- Laboratorium nr: 4
+
+## Cel ćwiczenia
+Celem laboratorium jest:
+
+- Poznanie wzorca projektowego Obserwator (ang. Observer).
+- Zrozumienie, dlaczego warto, żeby obiekt sam informował innych o swoich zmianach, zamiast czekać, aż ktoś go o nie zapyta.
+- Podział programu na pakiety i świadome dobieranie modyfikatorów dostępu.
+
+## Środowisko i narzędzia
+- System/wersje: Windows 11
+- Narzędzia: Eclipse
+
+## Zadania
+
+1. Opis zadania 1.
+
+# Plik Ticking
+```java
+package lab04;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.swing.Timer;
+
+public class Ticking implements Counter{
+	Counter arg;
+	public Ticking(Counter arg) {
+		this.arg = arg;
+		new Timer(1000, new ActionListener() {
+		    public void actionPerformed(ActionEvent e) {
+		        arg.increase();
+		    }
+		}).start();
+	}
+	@Override
+	public void increase() {
+		arg.increase();
+		java.awt.Toolkit.getDefaultToolkit().beep();
+	}
+	
+	@Override
+	public int currentValue() {
+		return arg.currentValue();
+	}
+	
+	@Override
+	public void reset() {
+		arg.reset();
+	}
+	
+	public String toString() {
+		return arg.toString()+" beep";
+	}
+}
+```
+
+Arg wskazuje na obiekt SimpleCounter, a wywołanie arg.increase() zwiększa jego pole counter o Wyswietla 0, a potem wartość liczniczka z zwiększeniem timer, nie jest aktualizowane automatycznie.
+Obiekt SimpleCounter wie, że wartość licznika się zmieniła, ponieważ przechowuje pole counter i modyfikuje je w metodzie increase().
+
+2. Opis zadania 2.
+
+# Plik CounterListener
+```java
+package lab04;
+
+public interface CounterListener {
+	void counterChanged(Counter source);
+}
+
+```
+# Plik AbstractListener
+```java
+package lab04;
+
+public abstract class AbstractCounter implements Counter {
+
+    protected int counter = 0;
+
+    private CounterListener[] listeners = new CounterListener[0];
+
+    @Override
+    public void addListener(CounterListener listener) {
+        CounterListener[] newListeners =
+                new CounterListener[listeners.length + 1];
+
+        for (int i = 0; i < listeners.length; i++) {
+            newListeners[i] = listeners[i];
+        }
+
+        newListeners[listeners.length] = listener;
+        listeners = newListeners;
+    }
+
+    protected void notifyListeners() {
+        for (CounterListener listener : listeners) {
+            listener.counterChanged(this);
+        }
+    }
+
+    @Override
+    public final void increase() {
+        step();
+        notifyListeners();
+    }
+
+    protected abstract void step();
+
+    @Override
+    public void reset() {
+        counter = 0;
+        notifyListeners();
+    }
+
+    @Override
+    public int currentValue() {
+        return counter;
+    }
+
+    @Override
+    public abstract String toString();
+}
+```
+
+# Plik Ticking
+```java
+package lab04;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.swing.Timer;
+
+public class Ticking implements Counter{
+	Counter arg;
+	public Ticking(Counter arg) {
+		this.arg = arg;
+		new Timer(1000, new ActionListener() {
+		    public void actionPerformed(ActionEvent e) {
+		        arg.increase();
+		    }
+		}).start();
+	}
+	@Override
+	public void increase() {
+		arg.increase();
+		java.awt.Toolkit.getDefaultToolkit().beep();
+	}
+	
+	@Override
+	public int currentValue() {
+		return arg.currentValue();
+	}
+	
+	@Override
+	public void reset() {
+		arg.reset();
+	}
+	
+	public String toString() {
+		return arg.toString();
+	}
+	
+	@Override
+	public void addListener(CounterListener listener) {
+	    arg.addListener(listener);
+	}
+}
+```
+
+Jeżeli BeepingCounter dziedziczy po AbstractCounter i nadpisuje metodę increase(), kompilator zgłosi błąd, ponieważ metoda w klasie bazowej jest oznaczona jako final.
+
+3. Opis zadania 3.
+
+Pozostała obsługa zdarzeń interfejsu: zwiększanie licznika po kliknięciu przycisku, resetowanie licznika oraz aktualizacja etykiety po zmianie wyboru w JComboBox. Metoda nie aktualizuje już etykiety po zwiększeniu ani resetowaniu, robi to counterChanged().
+
+To dobrze, ponieważ oddzielamy logikę biznesową od interfejsu graficznego. Liczniki mogą być używane w innych aplikacjach, bez modyfikowania ich kodu.
+
+4. Opis zadania 4.
+
+Dekoratory delegowały metodę addListener() bezpośrednio do opakowanego licznika. W efekcie powiadomienie przekazywało jako source obiekt wewnętrzny, a nie dekorator wybrany na liście. Porównanie obiektów przez "==" nie przechodziło, więc etykieta nie była aktualizowana.
+
+Trzeba byłoby powtarzać tablicę słuchaczy, metodę addListener() oraz obsługę counterChanged(). Kod ten został przeniesiony do AbstractCounterDecorator, więc znajduje się w jednym miejscu.
+
+Tak. W obu klasach przechowujemy słuchaczy i powiadamiamy ich o zmianach. Można też uniknąć powtarzania tej logiki pomiędzy AbstractCounter i AbstractCounterDecorator, wydzielając ją do osobnej wspólnej klasy pomocniczej. Wtedy zarówno zwykłe liczniki, jak i dekoratory mogłyby korzystać z tej samej implementacji.
+
+5. Opis zadania 5.
+
+| Element | Modyfikator dostępu | Uzasadnienie |
+|---|---|---|
+| Counter | public | Interfejs jest używany przez CounterApp w innym pakiecie. |
+| CounterListener | public | Aplikacja implementuje ten interfejs. |
+| AbstractCounter | public | Podklasy i inne klasy muszą móc korzystać z klasy bazowej. |
+| Pole counter | private | Wartość licznika powinna być modyfikowana przez metody klasy bazowej. |
+| Lista słuchaczy | private | Zewnętrzne klasy nie powinny bezpośrednio zmieniać listy. |
+| Metoda notifyListeners() | private | Powiadamianie jest wewnętrznym szczegółem implementacji. |
+| Metoda step() | protected | Podklasy w tym samym pakiecie mogą ją implementować i nadpisywać. |
+| Konstruktor AbstractCounter | protected | Pozwala tworzyć podklasy, ale nie udostępnia publicznego tworzenia obiektu klasy abstrakcyjnej. |
+| SimpleCounter i inne konkretne liczniki | public | Aplikacja tworzy je w pakiecie app. |
+| Konstruktory konkretnych liczników | public | Aplikacja musi móc wywołać new SimpleCounter(). |
+| AbstractCounterDecorator | public | Dekoratory korzystają z tej klasy bazowej. |
+| Konstruktor dekoratora | protected | Jest przeznaczony dla podklas dekoratora. |
+| Beeping, Ticking | public | Aplikacja tworzy te dekoratory. |
+| Konstruktory Beeping, Ticking | public | Aplikacja musi móc przekazywać im liczniki. |
+| Pole counter w dekoratorze | protected lub private | Protected pozwala podklasom korzystać z opakowanego licznika; private wymaga odpowiednich metod w klasie bazowej. |
+
+Tak, jeśli klasa AbstractCounter jest public, jej konstruktor jest dostępny dla podklas spoza pakietu, a metoda step() ma modyfikator protected. Wtedy można utworzyć podklasę w pakiecie app.
+
+Dobrze, jeśli chcemy pozwolić innym programistom rozszerzać bibliotekę i tworzyć własne rodzaje liczników. Źle, jeśli chcemy, żeby wszystkie implementacje liczników znajdowały się wyłącznie w pakiecie counters i nie chcemy udostępniać możliwości dziedziczenia na zewnątrz.
+
+6. Opis zadania 6.
+
+Zmienić trzebyło tylko klasę CounterApp. Dodano pasek i uzupełniono kod aktualizujący widok. Nie było potrzeby modyfikacji klas liczników ani dekoratorów, ponieważ aplikacja otrzymuje powiadomienie o zmianie wartości.
+
+Gdyby aplikacja nadal pytała liczniki o wartość po kliknięciu, trzeba byłoby aktualizować etykietę i pasek we wszystkich miejscach, w których aplikacja odczytuje wartość i odświeża widok. Jeśli takie miejsca występują w kilku obsługach zdarzeń, trzeba byłoby zmienić każde z nich albo najpierw wydzielić wspólną metodę aktualizacji.
+
+7. Opis zadania 7.
+
+Metoda fireContentsChanged() ma modyfikator protected, więc można ją wywołać w podklasie. Przy samej kompozycji nie można jej bezpośrednio wywołać z innego pakietu.
+
+
+Model nie znalazłby dekoratora na liście, ponieważ źródłem byłby opakowany licznik. W efekcie napis nie zostałby odświeżony.
+
+```mermaid
+flowchart TD
+    B(Licznik) --> C(CounterListModel)
+    C --> D(JComboBox)
+    D --> E(Licznik)
+```
+
+# Wnioski
+
+Zadania zostały wykonane z trudnościami w niektórych elementach oraz pomogły utrwalić element obserwatora, pakiety i modyfikatory dostępu.
